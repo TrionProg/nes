@@ -2,5 +2,13 @@
 name = "nes"
 version = "0.1.0"
 authors = ["trionprog <trionprog@gmail.com>"]
+description = "New Error System for rust"
+homepage = "https://github.com/TrionProg/nes"
+repository = "https://github.com/TrionProg/nes"
+readme = "README.md"
+keywords = ["error", "result"]
+license-file = "LICENSE"
+documentation = "https://docs.rs/nes/0.1.0/nes/"
+license = "MIT"
 
 [dependencies]

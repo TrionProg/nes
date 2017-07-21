@@ -1,5 +1,5 @@
 //!NES - New Error System is the library for rust, that makes the syntax more elegant for operating by errors.
-//!Each error stores the location in source code, where the error has been occurred, because some errors like std::io::Error may occurrs in different places in code, so it makes errors more useful for detection of problems.
+//!Each error stores the location in source code, where the error has been occurred, because some errors like std::io::Error may occurs in different places in code, so it is useful for detection of problems.
 //!Note, that this errors are useful for users or sysadmins. panic!() is preferable for developers to detect bugs. For example, server can not be started because port 80 is busy. In this case you should show user the window,
 //!that contains simple information and print to log more detailed information.
 //!
@@ -42,7 +42,37 @@ pub struct ErrorInfo {
     col:u32
 }
 
-///You must implement this trait for your own ErrorInfo, then you need, for example, get current time and write to log in method new.
+///You should implement this trait for your own ErrorInfo, then you need, for example, get current time and write to log in method new.
+///
+/// # Example
+///
+/// ```
+///use nes::ErrorInfoTrait; //Do not include ErrorInfo! Use your own ErrorInfo instead standart.
+///
+///pub struct ErrorInfo {
+///    file:&'static str,
+///    line:u32,
+///    col:u32,
+///    //some fields
+///}
+///
+///impl ErrorInfoTrait for ErrorInfo {
+///    fn new(file:&'static str, line:u32, col:u32 ) -> Self{
+///        ErrorInfo {
+///            file,
+///            line,
+///            col,
+///            //some fields
+///        }
+///    }
+///
+///    fn file(&self) -> &'static str { self.file }
+///    fn line(&self) -> u32 { self.line }
+///    fn col(&self) -> u32 { self.col }
+///}
+/// ```
+///
+
 pub trait ErrorInfoTrait: std::fmt::Display{
     fn new(file:&'static str, line:u32, col:u32 ) -> Self;
 
@@ -168,7 +198,25 @@ macro_rules! define_error{
                 }
             }
         }
+/* I think, this is not necessary
+        impl Error for $error_name {
+            fn description(&self) -> &str {
+                match *self {
+                    $(
+                        $error_name::$var_name( ref error_info, $( ref $field_name ),* ) => concat!(stringify!($error_name),"::",stringify!($var_name))
+                    ),*
+                }
+            }
 
+            fn cause(&self) -> Option<&error> {
+                match *self {
+                    $(
+                        $error_name::$var_name(..) => self.$var_name()
+                    ),*
+                }
+            }
+        }
+*/
     };
 
 }
