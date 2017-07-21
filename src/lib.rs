@@ -1,10 +1,48 @@
+//!NES - New Error System is the library for rust, that makes the syntax more elegant for operating by errors.
+//!Each error stores the location in source code, where the error has been occurred, because some errors like std::io::Error may occurrs in different places in code, so it makes errors more useful for detection of problems.
+//!Note, that this errors are useful for users or sysadmins. panic!() is preferable for developers to detect bugs. For example, server can not be started because port 80 is busy. In this case you should show user the window,
+//!that contains simple information and print to log more detailed information.
+//!
+//!You can match errors:
+//!
+//! # Example
+//!
+//! ```
+//!#![feature(box_patterns)]
+//!
+//!match process() {
+//!    Ok(_) => {},
+//!    Err(CommonError::IncorrectExtension(_,file_name, extension)) => println!("incorrect extension {}",extension),
+//!    Err(e) => {
+//!        match e {
+//!            //_, is error_info that contains information, where the error has been occurred, we skip it
+//!            CommonError::ReadFileError(_, box ReadFileError::ReadFileError(_,ref io_error, ref file)) => println!("can not read file \"{}\"",file),
+//!            _ => {println!("{}",e)} //or println!("{:?}",e)
+//!        }
+//!    }
+//!}
+//! ```
+//!
+//!
+//! By println!("{}",e) You will get error like(not in case above):
+//!
+//! ```text
+//!example/examples/example.rs 16:0   //line, where impl_from_error!() is.
+//!read file error example/examples/example.rs 51:13    //line where thr error has been occurred
+//!Can not read file "no_file.rs" : No such file or directory (os error 2)    //description of error
+//! ```
+//!
+//!Do not forget to see example.rs in examples directory
 
+
+///This is standart ErrorInfo structure.
 pub struct ErrorInfo {
     file:&'static str,
     line:u32,
     col:u32
 }
 
+///You must implement this trait for your own ErrorInfo, then you need, for example, get current time and write to log in method new.
 pub trait ErrorInfoTrait: std::fmt::Display{
     fn new(file:&'static str, line:u32, col:u32 ) -> Self;
 
@@ -32,18 +70,55 @@ impl std::fmt::Display for ErrorInfo{
         write!(f, "{} {}:{}", self.file,self.line,self.col)
     }
 }
-/*
-//!This macro defines the error, for example
-//!
-//! ```text
-//! let tokens = quote! {
 
-//! };
-//! ```
-//!
-//!
-
-*/
+///This macro defines the error.
+///
+/// # Example
+///
+/// ```
+///define_error!( ReadFileError,
+///    IOError(io_error:Box<std::io::Error>) =>
+///        "IO Error: {}",
+///    ReadFileError(io_error:Box<std::io::Error>, file:String ) =>
+///        "Can not read file \"{2}\" : {1}" //1,2 is order of args, note:0 is ErrorInfo
+///);
+///
+///define_error!( CommonError,
+///    ReadFileError(read_file_error:Box<ReadFileError>) =>
+///        "read file error {}",
+///    NoArguments() =>
+///        "no arguments",
+///    IncorrectExtension(file_name:String, extension:String) =>
+///        "Expected extension \"{2}\" for file \"{1}\""
+///);
+/// ```
+///
+///You must push other errors in Box. This prevent results that have large size or infinite(if error is recursive).
+///In this case Box<..> must be written first, and may be accessed by index like {2}, but index 0 has ErrorInfo, that describes where the error has been occurred.
+///
+///This macro generates code like
+///
+/// ```text
+///pub enum ReadFileError {
+///    IOError(ErrorInfo, Box<std::io::Error>),
+///    ReadFileError(ErrorInfo, Box<std::io::Error>, String )
+///);
+///
+///impl ReadFileError {
+///    pub fn get_error_info(&mut self) -> &ErrorInfo { ... }
+///}
+///
+///impl std::fmt::Display for ReadFileError {
+///    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+///        match *self {
+///            ReadFileError::ReadFileError(ref error_info, ref io_error, ref file) => write!(f, "{}\n,Can not read file \"{2}\" : {1}", error_info, io_error, file),
+///        }
+///    }
+///}
+///
+///impl std::fmt::Debug for ReadFileError { ... } //Short description.
+/// ```
+///
 
 #[macro_export]
 macro_rules! define_error{
@@ -98,6 +173,33 @@ macro_rules! define_error{
 
 }
 
+///This macro implements From trait for other errors.
+///
+///It allows you to convert other errors into current and write something like function(..)?.
+///Note, that you must use this macro only for errors, that have been defined with define_error!(). For errors like std::io::Error you must use try!() macro, because it gets information, where this error has been occurred.
+///
+/// # Example
+///
+/// ```
+///impl_from_error!(ReadFileError => CommonError);
+///
+///fn read_file(file_name:String) -> result![Vec<String>,ReadFileError] { ... }
+///
+///fn process() -> result![CommonError] { //Or Result<CommonError>
+///    let lines=read_file(file_name)?;
+///    ...
+///}
+/// ```
+///
+/// You will get error like:
+///
+/// ```text
+///example/examples/example.rs 16:0   //line, where impl_from_error!() is.
+///read file error example/examples/example.rs 51:13    //line where the error has been occurred
+///Can not read file "no_file.rs" : No such file or directory (os error 2)    //description of error
+/// ```
+///
+
 #[macro_export]
 macro_rules! impl_from_error{
     ( $from_error:ident => $to_error:ident ) => {
@@ -108,6 +210,22 @@ macro_rules! impl_from_error{
         }
     };
 }
+
+///This macro generates error that gets information, where the error has been occurred.
+///
+/// # Example
+///
+/// ```
+///let file_name=match args.next() {
+///    Some( file_name ) => file_name,
+///    None => return err!(CommonError::NoArguments),
+///};
+///
+///if !file_name.ends_with(".rs") {
+///    return err!(CommonError::IncorrectExtension, file_name, ".rs".to_string())
+///}
+/// ```
+///
 
 #[macro_export]
 macro_rules! err{
@@ -122,6 +240,17 @@ macro_rules! err{
         )
     };
 }
+
+///This macro looks like standart try!() macro but it gets information where the error has been occurred.
+///
+/// # Example
+///
+/// ```
+///let file=try!( std::fs::File::open(file_name.as_str()), ReadFileError::ReadFileError, file_name );
+///
+///match try!( buf_reader.read_line(&mut line), ReadFileError::IOError ) { ... }
+/// ```
+///
 
 #[macro_export]
 macro_rules! try{
@@ -147,6 +276,17 @@ macro_rules! try{
     };
 }
 
+///This macro avoids overabundance of <<>> and makes a syntax more beautiful.
+///
+/// # Example
+///
+/// ```
+///fn process() -> result![CommonError] { ... }
+///
+///fn read_file(file_name:String) -> result![Vec<String>,ReadFileError] { ... }
+/// ```
+///
+
 #[macro_export]
 macro_rules! result{
     [ $error:ty ] => {
@@ -156,6 +296,17 @@ macro_rules! result{
         Result<$ok, $error>
     };
 }
+
+///This macro makes a syntax more beautiful.
+///
+/// # Example
+///
+/// ```
+///ok!() // instead Ok(())
+///
+///ok!(lines) // instead Ok(lines)
+/// ```
+///
 
 #[macro_export]
 macro_rules! ok{

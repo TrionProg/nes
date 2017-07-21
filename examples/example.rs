@@ -1,5 +1,8 @@
+#![feature(box_patterns)]
+
 #[macro_use]
 extern crate nes;
+use nes::{ErrorInfo,ErrorInfoTrait};
 
 define_error!( ReadFileError,
     IOError(io_error:Box<std::io::Error>) => "IO Error: {}",
@@ -20,7 +23,7 @@ fn process() -> result![CommonError] { //Or Result<CommonError>
     let lines=read_file(file_name)?;
 
     for line in lines.iter() {
-        println!("{}",line);
+        print!("L:{}",line);
     }
 
     ok!()
@@ -47,7 +50,7 @@ fn read_file(file_name:String) -> result![Vec<String>,ReadFileError] {//Or Resul
     use std::io::BufReader;
     use std::io::prelude::*;
 
-    let file=try!( std::fs::File::open(file_name.as_str()), ReadFileError::ReadFileError, file_name );
+    let file=try!( File::open(file_name.as_str()), ReadFileError::ReadFileError, file_name );
 
     let mut buf_reader = BufReader::new(file);
     let mut lines=Vec::new();
@@ -55,8 +58,8 @@ fn read_file(file_name:String) -> result![Vec<String>,ReadFileError] {//Or Resul
 
     loop {
         match try!( buf_reader.read_line(&mut line), ReadFileError::IOError ) {
-            _ => lines.push(line.clone()),
             0 => break,
+            _ => lines.push(line.clone()),
         }
 
         line.clear();
@@ -68,7 +71,12 @@ fn read_file(file_name:String) -> result![Vec<String>,ReadFileError] {//Or Resul
 fn main() {
     match process() {
         Ok(_) => {},
-        //Err(CommonError::IncorrectExtension(@e _,file_name, extension)) => println!("incorrect extension {}",e),
-        Err(e) => println!("{}",e) //or println!("{:?}",e)
+        Err(CommonError::IncorrectExtension(_,file_name, extension)) => println!("incorrect extension {}",extension),
+        Err(e) => {
+            match e {
+                CommonError::ReadFileError(_, box ReadFileError::ReadFileError(_,ref io_error, ref file)) => println!("can not read file \"{}\"",file),
+                _ => {println!("{}",e)} //or println!("{:?}",e)
+            }
+        }
     }
 }
