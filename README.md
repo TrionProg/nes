@@ -8,20 +8,36 @@ Description
 * Where is collection of macros that make the syntax more elegant and short.
 * You can use your own ErrorInfo, that stores information where an error has been occurred.
 
+Information about error:
+
+Display ({})
+```
+example/examples/example.rs 16:0   //line, where impl_from_error!() is.
+read file error example/examples/example.rs 51:13    //line where thr error has been occurred
+Can not read file "no_file.rs" : No such file or directory (os error 2)    //description of error
+```
+
+Debug ({:?})
+```
+example/examples/example.rs 18:0
+CommonError::ReadFileError read_file_error:example/examples/example.rs 53:13
+ReadFileError::ReadFileError io_error:Error { repr: Os { code: 2, message: "No such file or directory" } } file:"no_file.rs"
+```
+
 If you have some ideas, write them in Issues.
 
 Usage
 -----
 
 Cargo.toml
-```
+```toml
 nes = "*"
 ```
 
-[Documentation](https://docs.rs/nes/0.1.0/nes/)
-[Example](https://github.com/trionprog/nes/examples/example.rs)
+* [Documentation](https://docs.rs/nes/0.1.0/nes/)
+* [Example](https://github.com/trionprog/nes/examples/example.rs)
 
-```
+```rust
 //See examples/example.rs
 
 define_error!( ReadFileError,
