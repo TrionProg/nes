@@ -1,3 +1,4 @@
+//This is an example, how to work with NES
 #![feature(box_patterns)]
 
 #[macro_use]

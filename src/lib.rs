@@ -35,7 +35,7 @@
 //!Do not forget to see example.rs in examples directory
 
 
-///This is standart ErrorInfo structure.
+///This is standard ErrorInfo structure.
 pub struct ErrorInfo {
     file:&'static str,
     line:u32,
@@ -47,7 +47,7 @@ pub struct ErrorInfo {
 /// # Example
 ///
 /// ```
-///use nes::ErrorInfoTrait; //Do not include ErrorInfo! Use your own ErrorInfo instead standart.
+///use nes::ErrorInfoTrait; //Do not include ErrorInfo! Use your own ErrorInfo instead standard.
 ///
 ///pub struct ErrorInfo {
 ///    file:&'static str,
@@ -253,7 +253,7 @@ macro_rules! impl_from_error{
     ( $from_error:ident => $to_error:ident ) => {
         impl From<$from_error> for $to_error {
             fn from(from_error:$from_error) -> Self {
-                $to_error::$from_error(ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!()),Box::new(from_error))
+                $to_error::$from_error(error_info!(),Box::new(from_error))
             }
         }
     };
@@ -279,17 +279,27 @@ macro_rules! impl_from_error{
 macro_rules! err{
     ( $error:path ) => {
         Err(
-            $error( ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!()) )
+            $error( error_info!() )
         )
     };
     ( $error:path, $( $arg:expr ),* ) => {
         Err(
-            $error( ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!()), $( $arg, )* )
+            $error( error_info!(), $( $arg, )* )
         )
     };
 }
 
-///This macro looks like standart try!() macro but it gets information where the error has been occurred.
+#[macro_export]
+macro_rules! create_err{
+    ( $error:path ) => {
+        $error( error_info!() )
+    };
+    ( $error:path, $( $arg:expr ),* ) => {
+        $error( error_info!(), $( $arg, )* )
+    };
+}
+
+///This macro looks like standard try!() macro but it gets information where the error has been occurred.
 ///
 /// # Example
 ///
@@ -307,7 +317,7 @@ macro_rules! try{
             Ok( ok ) => ok,
             Err(e) => {
                 return Err(
-                    $error( ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!()), Box::new(e) )
+                    $error( error_info!(), Box::new(e) )
                 )
             }
         }
@@ -317,7 +327,7 @@ macro_rules! try{
             Ok( ok ) => ok,
             Err(e) => {
                 return Err(
-                    $error( ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!()), Box::new(e), $( $arg, )* )
+                    $error( error_info!(), Box::new(e), $( $arg, )* )
                 )
             }
         }
@@ -365,3 +375,119 @@ macro_rules! ok{
         Ok( $( $x, )* )
     }
 }
+
+///This macro returns file,line,column, where an error has been occurred
+#[macro_export]
+macro_rules! error_info {
+    () => {
+        ErrorInfo::new(concat!(module_path!(),"/",file!()), line!(), column!())
+    };
+}
+
+
+///This macro helps to lock mutex and returns error if it is poisoned(second thread has locked the Mutex and panicked)
+///Where are 4 forms:
+///`let guard=mutex_lock(mutex)` returns "Error::Poisoned"
+///`let guard=mutex_lock(mutex,ErrorName)` returns "ErrorName::Poisoned"
+///`let guard=mutex_lock(mutex,ErrorName::Variant)` returns "ErrorName::Variant"
+///`let guard=mutex_lock(mutex,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+
+#[macro_export]
+macro_rules! mutex_lock{
+    ( $mutex:expr ) => {
+        match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!(Error::Poisoned),
+        }
+    };
+    ( $mutex:expr, $error:ident ) => {
+        match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error::Poisoned),
+        }
+    };
+    ( $mutex:expr, $error:path ) => {
+        match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error),
+        }
+    };
+    ( $mutex:expr, $error:path, $( $arg:expr ),* ) => {
+        match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
+        }
+    };
+}
+
+///This macro helps to lock rw_lock(calls write) and returns error if it is poisoned(second thread has locked the RwLock and panicked)
+///Where are 4 forms:
+///`let guard=rw_write(rw_lock)` returns "Error::Poisoned"
+///`let guard=rw_write(rw_lock,ErrorName)` returns "ErrorName::Poisoned"
+///`let guard=rw_write(rw_lock,ErrorName::Variant)` returns "ErrorName::Variant"
+///`let guard=rw_write(rw_lock,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+
+#[macro_export]
+macro_rules! rw_write{
+    ( $rw:expr ) => {
+        match $rw.write() {
+            Ok(guard) => guard,
+            Err(_) => return err!(Error::Poisoned),
+        }
+    };
+    ( $rw:expr, $error:ident ) => {
+        match $rw.write() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error::Poisoned),
+        }
+    };
+    ( $rw:expr, $error:path ) => {
+        match $rw.write() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error),
+        }
+    };
+    ( $rw:expr, $rw:path, $( $arg:expr ),* ) => {
+        match $rw.write() {
+            Ok(guard) => guard,
+            Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
+        }
+    };
+}
+
+///This macro helps to lock rw_lock(calls read) and returns error if it is poisoned(second thread has locked the RwLock and panicked)
+///Where are 4 forms:
+///`let guard=rw_read(rw_lock)` returns "Error::Poisoned"
+///`let guard=rw_read(rw_lock,ErrorName)` returns "ErrorName::Poisoned"
+///`let guard=rw_read(rw_lock,ErrorName::Variant)` returns "ErrorName::Variant"
+///`let guard=rw_read(rw_lock,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+
+#[macro_export]
+macro_rules! rw_read{
+    ( $rw:expr ) => {
+        match $rw.read() {
+            Ok(guard) => guard,
+            Err(_) => return err!(Error::Poisoned),
+        }
+    };
+    ( $rw:expr, $error:ident ) => {
+        match $rw.read() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error::Poisoned),
+        }
+    };
+    ( $rw:expr, $error:path ) => {
+        match $rw.read() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error),
+        }
+    };
+    ( $rw:expr, $rw:path, $( $arg:expr ),* ) => {
+        match $rw.read() {
+            Ok(guard) => guard,
+            Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
+        }
+    };
+}
+
+//TODO:channels
