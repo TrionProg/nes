@@ -34,7 +34,7 @@ Cargo.toml
 nes = "*"
 ```
 
-* [Documentation](https://docs.rs/nes/0.1.0/nes/)
+* [Documentation](https://docs.rs/nes/0.1.1/nes/)
 * [Example](https://github.com/trionprog/nes/examples/example.rs)
 
 ```rust

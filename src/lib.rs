@@ -24,7 +24,7 @@
 //! ```
 //!
 //!
-//! By println!("{}",e) You will get error like(not in case above):
+//! By `println!("{}",e)` You will get error like(not in case above):
 //!
 //! ```text
 //!example/examples/example.rs 16:0   //line, where impl_from_error!() is.
@@ -32,7 +32,7 @@
 //!Can not read file "no_file.rs" : No such file or directory (os error 2)    //description of error
 //! ```
 //!
-//!Do not forget to see example.rs in examples directory
+//!Do not forget to see examples directory
 
 
 ///This is standard ErrorInfo structure.
@@ -247,6 +247,15 @@ macro_rules! define_error{
 ///Can not read file "no_file.rs" : No such file or directory (os error 2)    //description of error
 /// ```
 ///
+///Where is second form
+///
+/// # Example
+///
+/// ```rust
+///impl_from_error!(::module::ReadFileError => CommonError::CanNotReadFile);
+/// ```
+///
+
 
 #[macro_export]
 macro_rules! impl_from_error{
@@ -257,9 +266,16 @@ macro_rules! impl_from_error{
             }
         }
     };
+    ( $from_error:path => $to_error:ident :: $to_variant:ident ) => {
+        impl From<$from_error> for $to_error {
+            fn from(from_error:$from_error) -> Self {
+                $to_error::$to_variant(error_info!(),Box::new(from_error))
+            }
+        }
+    };
 }
 
-///This macro generates error that gets information, where the error has been occurred.
+///This macro generates error that gets information, where the error has been occurred. You should return it.
 ///
 /// # Example
 ///
@@ -289,6 +305,16 @@ macro_rules! err{
     };
 }
 
+///This macro creates error that gets information, where the error has been occurred. You can insert it into other error.
+///
+/// # Example
+///
+/// ```
+///let error=Box::new(create_err!(handler::Error::BrockenChannel));
+///return err!(Error::HandlerThreadCrash, error, ThreadSource::Handler);
+/// ```
+///
+
 #[macro_export]
 macro_rules! create_err{
     ( $error:path ) => {
@@ -300,6 +326,8 @@ macro_rules! create_err{
 }
 
 ///This macro looks like standard try!() macro but it gets information where the error has been occurred.
+///
+///Note: if error, that you convert to other, contains ErrorInfo(is defined by define_error!() and is not like std::io::Error), you should use ?.
 ///
 /// # Example
 ///
@@ -377,6 +405,8 @@ macro_rules! ok{
 }
 
 ///This macro returns file,line,column, where an error has been occurred
+///
+
 #[macro_export]
 macro_rules! error_info {
     () => {
@@ -385,12 +415,18 @@ macro_rules! error_info {
 }
 
 
-///This macro helps to lock mutex and returns error if it is poisoned(second thread has locked the Mutex and panicked)
+///This macro helps to lock mutex and returns error if it is poisoned(second thread has locked the Mutex and panicked).
+///
 ///Where are 4 forms:
+///
 ///`let guard=mutex_lock(mutex)` returns "Error::Poisoned"
+///
 ///`let guard=mutex_lock(mutex,ErrorName)` returns "ErrorName::Poisoned"
+///
 ///`let guard=mutex_lock(mutex,ErrorName::Variant)` returns "ErrorName::Variant"
-///`let guard=mutex_lock(mutex,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+///
+///`let guard=mutex_lock(mutex,ErrorName::Variant,arg1,arg2,...)` returns "ErrorName::Variant(arg1,arg2,...)"
+///
 
 #[macro_export]
 macro_rules! mutex_lock{
@@ -420,12 +456,18 @@ macro_rules! mutex_lock{
     };
 }
 
-///This macro helps to lock rw_lock(calls write) and returns error if it is poisoned(second thread has locked the RwLock and panicked)
+///This macro helps to lock rw_lock(calls write) and returns error if it is poisoned(second thread has locked the RwLock and panicked).
+///
 ///Where are 4 forms:
+///
 ///`let guard=rw_write(rw_lock)` returns "Error::Poisoned"
+///
 ///`let guard=rw_write(rw_lock,ErrorName)` returns "ErrorName::Poisoned"
+///
 ///`let guard=rw_write(rw_lock,ErrorName::Variant)` returns "ErrorName::Variant"
-///`let guard=rw_write(rw_lock,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+///
+///`let guard=rw_write(rw_lock,ErrorName::Variant,arg1,arg2,...)` returns "ErrorName::Variant(arg1,arg2,...)"
+///
 
 #[macro_export]
 macro_rules! rw_write{
@@ -455,12 +497,18 @@ macro_rules! rw_write{
     };
 }
 
-///This macro helps to lock rw_lock(calls read) and returns error if it is poisoned(second thread has locked the RwLock and panicked)
+///This macro helps to lock rw_lock(calls read) and returns error if it is poisoned(second thread has locked the RwLock and panicked).
+///
 ///Where are 4 forms:
+///
 ///`let guard=rw_read(rw_lock)` returns "Error::Poisoned"
+///
 ///`let guard=rw_read(rw_lock,ErrorName)` returns "ErrorName::Poisoned"
+///
 ///`let guard=rw_read(rw_lock,ErrorName::Variant)` returns "ErrorName::Variant"
-///`let guard=rw_read(rw_lock,ErrorName::Variant,arg1,arg2)` returns "ErrorName::Variant(arg1,arg2)"
+///
+///`let guard=rw_read(rw_lock,ErrorName::Variant,arg1,arg2,...)` returns "ErrorName::Variant(arg1,arg2,...)"
+///
 
 #[macro_export]
 macro_rules! rw_read{
@@ -490,4 +538,39 @@ macro_rules! rw_read{
     };
 }
 
-//TODO:channels
+///This macro sends a message into channel and returns error if channel is brocken(second thread has panicked or finished).
+///
+///Where are 4 forms:
+///
+///`channel_send(channel,message)` returns "Error::BrockenChannel"
+///
+///`channel_send(channel,message,ErrorName)` returns "ErrorName::BrockenChannel"
+///
+///`channel_send(channel,message,ErrorName::Variant)` returns "ErrorName::Variant"
+///
+///`channel_send(channel,message,ErrorName::Variant,arg1,arg2,...)` returns "ErrorName::Variant(arg1,arg2,...)"
+///
+
+#[macro_export]
+macro_rules! channel_send{
+    ( $channel:expr, $message:expr ) => {
+        if $channel.send( $message ).is_err() {
+            return err!(Error::BrockenChannel)
+        }
+    };
+    ( $channel:expr, $message:expr, $error:ident ) => {
+        if $channel.send( $message ).is_err() {
+            return err!($error::BrockenChannel)
+        }
+    };
+    ( $channel:expr, $message:expr, $error:path ) => {
+        if $channel.send( $message ).is_err() {
+            return err!($error)
+        }
+    };
+    ( $channel:expr, $message:expr, $( $arg:expr ),* ) => {
+        if $channel.send( $message ).is_err() {
+            return Err( $error( error_info!(), $( $arg, )* ) )
+        }
+    };
+}
