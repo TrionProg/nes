@@ -454,6 +454,39 @@ macro_rules! mutex_lock{
             Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
         }
     };
+
+    ( $mutex:expr => $var:ident) => {
+        let mut guard=match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!(Error::Poisoned),
+        };
+
+        let $var=guard.deref_mut();
+    };
+    ( $mutex:expr => $var:ident, $error:ident ) => {
+        let mut guard=match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error::Poisoned),
+        };
+
+        let $var=guard.deref_mut();
+    };
+    ( $mutex:expr => $var:ident, $error:path ) => {
+        let mut guard=match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return err!($error),
+        };
+
+        let $var=guard.deref_mut();
+    };
+    ( $mutex:expr => $var:ident, $error:path, $( $arg:expr ),* ) => {
+        let mut guard=match $mutex.lock() {
+            Ok(guard) => guard,
+            Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
+        };
+
+        let $var=guard.deref_mut();
+    };
 }
 
 ///This macro helps to lock rw_lock(calls write) and returns error if it is poisoned(second thread has locked the RwLock and panicked).
@@ -568,7 +601,7 @@ macro_rules! channel_send{
             return err!($error)
         }
     };
-    ( $channel:expr, $message:expr, $( $arg:expr ),* ) => {
+    ( $channel:expr, $message:expr, $error:path , $( $arg:expr ),* ) => {
         if $channel.send( $message ).is_err() {
             return Err( $error( error_info!(), $( $arg, )* ) )
         }
