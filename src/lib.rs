@@ -522,7 +522,7 @@ macro_rules! rw_write{
             Err(_) => return err!($error),
         }
     };
-    ( $rw:expr, $rw:path, $( $arg:expr ),* ) => {
+    ( $rw:expr, $error:path, $( $arg:expr ),* ) => {
         match $rw.write() {
             Ok(guard) => guard,
             Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
@@ -563,7 +563,7 @@ macro_rules! rw_read{
             Err(_) => return err!($error),
         }
     };
-    ( $rw:expr, $rw:path, $( $arg:expr ),* ) => {
+    ( $rw:expr, $error:path, $( $arg:expr ),* ) => {
         match $rw.read() {
             Ok(guard) => guard,
             Err(_) => return Err( $error( error_info!(), $( $arg, )* ) ),
